@@ -52,6 +52,7 @@ def load_data():
         df_raw = pd.read_csv("data.csv")
         total_records = len(df_raw)
         
+        # Xử lý toạ độ
         if 'lat' in df_raw.columns and 'lon' in df_raw.columns:
             df_raw['lat'] = pd.to_numeric(df_raw['lat'], errors='coerce')
             df_raw['lon'] = pd.to_numeric(df_raw['lon'], errors='coerce')
@@ -62,11 +63,13 @@ def load_data():
         else:
             return None, None, 0
 
+        # Xử lý Quận (District)
         if 'District' in df_clean.columns:
             df_clean['District'] = df_clean['District'].astype(str).str.strip().replace('nan', 'Chưa xác định')
         else:
             df_clean['District'] = 'Chưa xác định'
 
+        # Xử lý Tags (Type1, Type2)
         def split_tags(text):
             if pd.isna(text) or str(text).strip() == '': return []
             return [t.strip() for t in str(text).split(',')]
@@ -283,12 +286,11 @@ with tab2:
             else:
                 st.info("Không đủ dữ liệu đa môn để vẽ ma trận tương quan.")
 
-        # --- RIGHT: TOP CENTERS (NEW) ---
+        # --- RIGHT: TOP CENTERS ---
         with col_top_centers:
             st.markdown("**🏆 Top Trung tâm Đa dạng Dịch vụ**")
             st.caption("Các đơn vị cung cấp nhiều loại hình đào tạo nhất")
             
-            # Lấy top 15 trung tâm có Service_Count cao nhất
             top_centers = df_filtered[['Name', 'Service_Count']].sort_values(by='Service_Count', ascending=False).head(15)
             
             if not top_centers.empty:
@@ -299,10 +301,10 @@ with tab2:
                     orientation='h',
                     text_auto=True,
                     color='Service_Count',
-                    color_continuous_scale='YlOrRd', # Vàng cam đỏ (Đậm dần)
+                    color_continuous_scale='YlOrRd',
                     labels={'Service_Count': 'Số lượng môn', 'Name': 'Tên trung tâm'}
                 )
-                fig_top.update_layout(yaxis=dict(autorange="reversed")) # Đảo ngược trục Y để cao nhất lên đầu
+                fig_top.update_layout(yaxis=dict(autorange="reversed"))
                 st.plotly_chart(fig_top, use_container_width=True)
             else:
                 st.info("Chưa có dữ liệu.")
@@ -310,9 +312,9 @@ with tab2:
         st.markdown("---")
         
         # ==========================
-        # SECTION 3: HEATMAP
+        # SECTION 3: GEOGRAPHY (HEATMAP ONLY)
         # ==========================
-        st.subheader("3. 🔥 Bản đồ nhiệt Thị trường (Heatmap)")
+        st.subheader("3. 🔥 Bản đồ nhiệt Thị trường")
         st.caption("Cường độ cạnh tranh tại các Khu vực")
         
         heat_data = pd.crosstab(df_explode_type1['District'], df_explode_type1['Type1_List'])
@@ -327,7 +329,7 @@ with tab2:
         st.markdown("---")
 
         # ==========================
-        # SECTION 4: BRANDING (MOVED TO BOTTOM)
+        # SECTION 4: BRANDING
         # ==========================
         st.subheader("4. 🏷️ Xu hướng Đặt tên (Branding)")
         st.caption("Các từ khoá xuất hiện nhiều nhất trong tên Thương hiệu")
@@ -346,6 +348,40 @@ with tab2:
             st.plotly_chart(fig_wc, use_container_width=True)
         else:
             st.info("Không đủ dữ liệu text để phân tích.")
+
+        st.markdown("---")
+
+        # ==========================
+        # SECTION 5: TOP DISTRICTS (NEW, AT THE BOTTOM)
+        # ==========================
+        st.subheader("5. 🏙️ Xếp hạng Khu vực (District)")
+        st.caption("Danh sách các Quận/Huyện có nhiều trung tâm nhất")
+        
+        dist_counts = df_filtered['District'].value_counts().reset_index()
+        dist_counts.columns = ['Khu vực', 'Số lượng']
+        
+        if not dist_counts.empty:
+            # Xử lý max_val an toàn tránh lỗi NaN
+            max_val = dist_counts['Số lượng'].max()
+            if pd.isna(max_val) or max_val == 0: max_val = 1
+            
+            st.dataframe(
+                dist_counts,
+                column_config={
+                    "Khu vực": st.column_config.TextColumn("Tên Quận/Huyện"),
+                    "Số lượng": st.column_config.ProgressColumn(
+                        "Số lượng cơ sở",
+                        format="%d",
+                        min_value=0,
+                        max_value=int(max_val),
+                    ),
+                },
+                hide_index=True,
+                use_container_width=True,
+                height=400
+            )
+        else:
+            st.info("Chưa có dữ liệu khu vực.")
 
     else:
         st.warning("Vui lòng chọn bộ lọc để xem phân tích dữ liệu.")
